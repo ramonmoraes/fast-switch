@@ -81,7 +81,6 @@ static void fastswitch_apply_corner_mask(NSView *view, CGFloat cornerRadius) {
   view.wantsLayer = YES;
   view.layer.cornerRadius = cornerRadius;
   view.layer.masksToBounds = YES;
-  view.layer.backgroundColor = NSColor.clearColor.CGColor;
 }
 
 static void fastswitch_apply_window_appearance(NSWindow *window) {
@@ -90,7 +89,6 @@ static void fastswitch_apply_window_appearance(NSWindow *window) {
   }
 
   window.opaque = NO;
-  window.backgroundColor = NSColor.clearColor;
   window.hasShadow = YES;
 
   NSView *contentView = window.contentView;

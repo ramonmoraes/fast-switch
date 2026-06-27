@@ -67,7 +67,6 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.hotkeyRegistered = registerOptionTabHotkey()
 	a.statusItemReady = registerStatusItem()
-	wruntime.WindowSetBackgroundColour(ctx, 0, 0, 0, 1)
 	wruntime.WindowSetAlwaysOnTop(ctx, true)
 	wruntime.WindowCenter(ctx)
 	configureWindowAppearance()

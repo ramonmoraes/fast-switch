@@ -33,6 +33,9 @@ img {
   padding: 20px 22px 16px;
   border-radius: 18px;
 
+  -webkit-backdrop-filter: blur(100px);
+  backdrop-filter: blur(100px);
+
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
     rgba(16, 16, 18, 0.86);
