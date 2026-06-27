@@ -18,9 +18,12 @@ const (
 	statusActionQuit         = 3
 	switcherMinWidth         = 340
 	switcherMaxWidth         = 1120
-	switcherHeight           = 214
-	switcherTileWidth        = 92
-	switcherFramePadding     = 64
+	switcherTileWidth        = 82
+	switcherTileGap          = 10
+	switcherHorizontalInset  = 44
+	switcherMinHeight        = 64
+	switcherMaxHeight        = 214
+	switcherContentHeight    = 182
 )
 
 type App struct {
@@ -411,7 +414,6 @@ func (a *App) permissionStatusLocked() PermissionStatus {
 }
 
 func (a *App) presentSnapshot(snapshot DesktopSnapshot) {
-	wruntime.WindowSetSize(a.ctx, calculateSwitcherWidth(len(snapshot.Windows)), switcherHeight)
 	wruntime.WindowCenter(a.ctx)
 	wruntime.WindowShow(a.ctx)
 	wruntime.Show(a.ctx)
@@ -430,18 +432,4 @@ func (a *App) hideSwitcher() {
 	wruntime.WindowHide(a.ctx)
 	wruntime.Hide(a.ctx)
 	a.emitSnapshot(snapshot)
-}
-
-func calculateSwitcherWidth(windowCount int) int {
-	if windowCount <= 0 {
-		return switcherMinWidth
-	}
-	width := switcherFramePadding + (windowCount * switcherTileWidth)
-	if width < switcherMinWidth {
-		return switcherMinWidth
-	}
-	if width > switcherMaxWidth {
-		return switcherMaxWidth
-	}
-	return width
 }

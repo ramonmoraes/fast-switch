@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { EventsOn } from "../wailsjs/runtime/runtime";
+import { useEffect, useRef, useState } from "react";
+import { EventsOn, WindowSetSize } from "../wailsjs/runtime/runtime";
 
 type PermissionStatus = {
   accessibility: boolean;
@@ -78,6 +78,7 @@ function iconFallback(windowInfo: WindowInfo) {
 
 function App() {
   const [snapshot, setSnapshot] = useState<DesktopSnapshot>(fallbackSnapshot);
+  const switcherRef = useRef<HTMLElement | null>(null);
 
   async function refreshSnapshot() {
     if (!window.go?.main?.App?.GetDesktopSnapshot) {
@@ -96,6 +97,28 @@ function App() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const switcherElement = switcherRef.current;
+    if (!switcherElement) {
+      return;
+    }
+    const measuredElement: HTMLElement = switcherElement;
+
+    function syncWindowSize() {
+      const rect = measuredElement.getBoundingClientRect();
+      WindowSetSize(Math.ceil(rect.width), Math.ceil(rect.height));
+    }
+
+    syncWindowSize();
+
+    const observer = new ResizeObserver(() => {
+      syncWindowSize();
+    });
+    observer.observe(measuredElement);
+
+    return () => observer.disconnect();
+  }, [snapshot.windows.length]);
 
   useEffect(() => {
     async function onKeyDown(event: KeyboardEvent) {
@@ -152,7 +175,7 @@ function App() {
         </button>
       ) : null}
 
-      <section className="switcher-frame" aria-label="App Switcher">
+      <section className="switcher-frame" aria-label="App Switcher" id="switcher" ref={switcherRef}>
         <div className="switcher-strip">
           {snapshot.windows.map((item, index) => (
             <button
