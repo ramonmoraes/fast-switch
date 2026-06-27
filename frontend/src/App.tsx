@@ -197,56 +197,45 @@ function App() {
     ? `Command + Tab live (${snapshot.permissions.hotkeyPresses} presses)`
     : "Command + Tab not registered";
 
+  const debug = false
+
   return (
     <main className={`app-shell${snapshot.switcher.visible ? " switcher-mode" : ""}`}>
-      <section className="hero">
-        <p className="eyebrow">macOS Alt-Tab Utility</p>
-        <h1>Fast Switch</h1>
-        <p className="lede">
-          A Wails-based switcher shell backed by live macOS permissions, menu bar presence,
-          and window activation APIs.
-        </p>
-      </section>
-
       <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="section-label">Native Bridge</p>
-            <h2>Window switcher surface</h2>
+        {debug && (
+          <div className="toolbar">
+            <button type="button" onClick={() => void refreshWindows()}>
+              Refresh windows
+            </button>
+            <button type="button" onClick={() => void requestAccessibility()}>
+              Request Accessibility
+            </button>
+            <button type="button" onClick={() => void requestScreenRecording()}>
+              Request Screen Recording
+            </button>
           </div>
-          <span className="shortcut">{hotkeyText}</span>
-        </div>
+        )}
 
-        <div className="toolbar">
-          <button type="button" onClick={() => void refreshWindows()}>
-            Refresh windows
-          </button>
-          <button type="button" onClick={() => void requestAccessibility()}>
-            Request Accessibility
-          </button>
-          <button type="button" onClick={() => void requestScreenRecording()}>
-            Request Screen Recording
-          </button>
-        </div>
-
-        <div className="status-grid">
-          <article className="status-card">
-            <span>Accessibility</span>
-            <strong>{snapshot.permissions.accessibility ? "Granted" : "Missing"}</strong>
-          </article>
-          <article className="status-card">
-            <span>Screen Recording</span>
-            <strong>{snapshot.permissions.screenRecording ? "Granted" : "Missing"}</strong>
-          </article>
-          <article className="status-card">
-            <span>Menu Bar</span>
-            <strong>{snapshot.permissions.statusItemReady ? "Registered" : "Unavailable"}</strong>
-          </article>
-          <article className="status-card">
-            <span>Switcher</span>
-            <strong>{snapshot.switcher.visible ? "Visible" : "Hidden"}</strong>
-          </article>
-        </div>
+        {debug && (
+          <div className="status-grid">
+            <article className="status-card">
+              <span>Accessibility</span>
+              <strong>{snapshot.permissions.accessibility ? "Granted" : "Missing"}</strong>
+            </article>
+            <article className="status-card">
+              <span>Screen Recording</span>
+              <strong>{snapshot.permissions.screenRecording ? "Granted" : "Missing"}</strong>
+            </article>
+            <article className="status-card">
+              <span>Menu Bar</span>
+              <strong>{snapshot.permissions.statusItemReady ? "Registered" : "Unavailable"}</strong>
+            </article>
+            <article className="status-card">
+              <span>Switcher</span>
+              <strong>{snapshot.switcher.visible ? "Visible" : "Hidden"}</strong>
+            </article>
+          </div>
+        )}
 
         {snapshot.permissions.warnings.length > 0 ? (
           <div className="warning-list">
@@ -257,11 +246,6 @@ function App() {
         ) : null}
 
         {activationMessage ? <p className="activation-message">{activationMessage}</p> : null}
-
-        <div className="hint-row">
-          <span>Use `Command+Tab` to open and cycle.</span>
-          <span>`Enter` activates. `Esc` dismisses.</span>
-        </div>
 
         <div className="switcher">
           {snapshot.windows.map((item, index) => (
@@ -278,9 +262,12 @@ function App() {
                   {Math.round(item.x)},{Math.round(item.y)}
                 </small>
               </div>
-              <button type="button" className="activate-button" onClick={() => void activate(item)}>
-                Activate
-              </button>
+
+              {debug && (
+                <button type="button" className="activate-button" onClick={() => void activate(item)}>
+                  Activate
+                </button>
+              )}
             </article>
           ))}
         </div>
@@ -290,22 +277,6 @@ function App() {
             No switchable windows were found. If this is unexpected, grant permissions and refresh.
           </p>
         ) : null}
-      </section>
-
-      <section className="grid">
-        <article className="info-card">
-          <p className="section-label">Build track</p>
-          <h3>Why Wails</h3>
-          <p>
-            Go owns the desktop logic, while the UI stays fast to iterate with React and
-            can consume native bridge data directly.
-          </p>
-        </article>
-        <article className="info-card">
-          <p className="section-label">Next milestone</p>
-          <h3>Real switcher behavior</h3>
-          <p>{snapshot.appState.nextSteps[0]}</p>
-        </article>
       </section>
     </main>
   );
