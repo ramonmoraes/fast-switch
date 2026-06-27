@@ -237,7 +237,7 @@ function App() {
           </div>
         )}
 
-        {snapshot.permissions.warnings.length > 0 ? (
+        {debug && snapshot.permissions.warnings.length > 0 ? (
           <div className="warning-list">
             {snapshot.permissions.warnings.map((warning) => (
               <p key={warning}>{warning}</p>
@@ -255,12 +255,7 @@ function App() {
             >
               <div className="switcher-icon">{item.ownerName.slice(0, 1)}</div>
               <div className="switcher-copy">
-                <strong>{item.ownerName}</strong>
-                <span>{item.title || "Untitled window"}</span>
-                <small>
-                  PID {item.pid} • {Math.round(item.width)}x{Math.round(item.height)} at{" "}
-                  {Math.round(item.x)},{Math.round(item.y)}
-                </small>
+                <strong>{item.ownerName || item.title || "Untitled window"}</strong>
               </div>
 
               {debug && (
