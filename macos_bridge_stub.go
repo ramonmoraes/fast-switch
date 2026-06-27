@@ -79,3 +79,5 @@ func registerStatusItem() bool {
 func consumeStatusAction() int {
 	return 0
 }
+
+func configureWindowAppearance() {}

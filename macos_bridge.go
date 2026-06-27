@@ -21,6 +21,7 @@ int fastswitch_consume_option_tab_press_count(void);
 int fastswitch_consume_option_key_release_count(void);
 bool fastswitch_register_status_item(void);
 int fastswitch_consume_status_action(void);
+void fastswitch_configure_window_appearance(void);
 void fastswitch_free_string(char* value);
 */
 import "C"
@@ -139,4 +140,8 @@ func registerStatusItem() bool {
 
 func consumeStatusAction() int {
 	return int(C.fastswitch_consume_status_action())
+}
+
+func configureWindowAppearance() {
+	C.fastswitch_configure_window_appearance()
 }

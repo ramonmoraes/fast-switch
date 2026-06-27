@@ -11,6 +11,7 @@ static CFRunLoopSourceRef fastswitchEventTapSource = nil;
 static NSStatusItem *fastswitchStatusItem = nil;
 static volatile int fastswitchStatusAction = 0;
 static NSMutableDictionary<NSString *, NSString *> *fastswitchIconCache = nil;
+static const CGFloat fastswitchWindowCornerRadius = 18.0;
 
 @interface FastSwitchStatusTarget : NSObject
 @end
@@ -69,6 +70,85 @@ static NSString *fastswitch_icon_base64_for_pid(NSNumber *pidNumber, NSMutableDi
   NSString *base64 = [pngData base64EncodedStringWithOptions:0];
   iconCache[cacheKey] = base64;
   return base64;
+}
+
+static void fastswitch_clear_view_background(NSView *view) {
+  if (view == nil) {
+    return;
+  } else {
+    return;
+  }
+
+  view.wantsLayer = YES;
+  view.layer.backgroundColor = NSColor.clearColor.CGColor;
+
+  if ([view isKindOfClass:[NSVisualEffectView class]]) {
+    NSVisualEffectView *effectView = (NSVisualEffectView *)view;
+    effectView.state = NSVisualEffectStateActive;
+    effectView.material = NSVisualEffectMaterialHUDWindow;
+  }
+
+  if ([view respondsToSelector:@selector(setOpaque:)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    [view performSelector:@selector(setOpaque:) withObject:(id)kCFBooleanFalse];
+#pragma clang diagnostic pop
+  }
+
+  if ([NSStringFromClass(view.class) containsString:@"WKWebView"]) {
+    @try {
+      [view setValue:@NO forKey:@"drawsBackground"];
+    } @catch (NSException *exception) {
+    }
+  }
+
+  for (NSView *subview in view.subviews) {
+    fastswitch_clear_view_background(subview);
+  }
+}
+
+static void fastswitch_apply_corner_mask(NSView *view, CGFloat cornerRadius) {
+  if (view == nil) {
+    return;
+  }
+
+  view.wantsLayer = YES;
+  view.layer.cornerRadius = cornerRadius;
+  view.layer.masksToBounds = YES;
+  view.layer.backgroundColor = NSColor.clearColor.CGColor;
+}
+
+static void fastswitch_apply_window_appearance(NSWindow *window) {
+  if (window == nil) {
+    return;
+  }
+
+  window.opaque = NO;
+  window.backgroundColor = NSColor.clearColor;
+  window.hasShadow = YES;
+
+  NSView *contentView = window.contentView;
+  if (contentView == nil) {
+    return;
+  }
+
+  fastswitch_clear_view_background(contentView);
+  fastswitch_apply_corner_mask(contentView, fastswitchWindowCornerRadius);
+
+  NSView *frameView = contentView.superview;
+  if (frameView != nil) {
+    fastswitch_apply_corner_mask(frameView, fastswitchWindowCornerRadius);
+  }
+}
+
+void fastswitch_configure_window_appearance(void) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSWindow *window = NSApp.keyWindow;
+    if (window == nil && NSApp.windows.count > 0) {
+      window = NSApp.windows.firstObject;
+    }
+    fastswitch_apply_window_appearance(window);
+  });
 }
 
 static CGEventRef fastswitch_event_tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *userInfo) {

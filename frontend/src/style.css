@@ -8,18 +8,11 @@
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  height: 0px;
-}
-
 body {
   margin: 0;
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  background: transparent;
 }
 
 button,
