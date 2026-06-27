@@ -72,40 +72,6 @@ static NSString *fastswitch_icon_base64_for_pid(NSNumber *pidNumber, NSMutableDi
   return base64;
 }
 
-static void fastswitch_clear_view_background(NSView *view) {
-  if (view == nil) {
-    return;
-  } else {
-    return;
-  }
-
-  view.wantsLayer = YES;
-  view.layer.backgroundColor = NSColor.clearColor.CGColor;
-
-  if ([view isKindOfClass:[NSVisualEffectView class]]) {
-    NSVisualEffectView *effectView = (NSVisualEffectView *)view;
-    effectView.state = NSVisualEffectStateActive;
-    effectView.material = NSVisualEffectMaterialHUDWindow;
-  }
-
-  if ([view respondsToSelector:@selector(setOpaque:)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-    [view performSelector:@selector(setOpaque:) withObject:(id)kCFBooleanFalse];
-#pragma clang diagnostic pop
-  }
-
-  if ([NSStringFromClass(view.class) containsString:@"WKWebView"]) {
-    @try {
-      [view setValue:@NO forKey:@"drawsBackground"];
-    } @catch (NSException *exception) {
-    }
-  }
-
-  for (NSView *subview in view.subviews) {
-    fastswitch_clear_view_background(subview);
-  }
-}
 
 static void fastswitch_apply_corner_mask(NSView *view, CGFloat cornerRadius) {
   if (view == nil) {
@@ -132,7 +98,6 @@ static void fastswitch_apply_window_appearance(NSWindow *window) {
     return;
   }
 
-  fastswitch_clear_view_background(contentView);
   fastswitch_apply_corner_mask(contentView, fastswitchWindowCornerRadius);
 
   NSView *frameView = contentView.superview;
