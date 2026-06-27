@@ -16,6 +16,12 @@ const (
 	statusActionOpenSwitcher = 1
 	statusActionRefresh      = 2
 	statusActionQuit         = 3
+	switcherWidth            = 980
+	switcherMinHeight        = 128
+	switcherMaxHeight        = 720
+	switcherBaseHeight       = 240
+	switcherCardHeight       = 122
+	switcherColumns          = 3
 )
 
 type App struct {
@@ -220,13 +226,17 @@ func (a *App) handleHotkeyPresses(count int) {
 	a.mu.Lock()
 	a.hotkeyPresses += count
 	a.refreshWindowsLocked()
+	frontmostPID := frontmostAppPID()
 	if len(a.windows) == 0 {
 		a.switcherVisible = true
 		a.selectedIndex = -1
 	} else if !a.switcherVisible {
 		a.switcherVisible = true
-		a.selectedIndex = 0
-		if count > 1 {
+		a.selectedIndex = a.firstSelectableIndexLocked(frontmostPID)
+		if a.selectedIndex < 0 {
+			a.selectedIndex = 0
+		}
+		if count > 1 && len(a.windows) > 0 {
 			a.selectedIndex = (a.selectedIndex + (count - 1)) % len(a.windows)
 		}
 	} else {
@@ -320,6 +330,18 @@ func windowKey(window WindowInfo) string {
 	return window.OwnerName + "|" + window.Title + "|" + strconv.Itoa(window.PID)
 }
 
+func (a *App) firstSelectableIndexLocked(frontmostPID int) int {
+	if len(a.windows) == 0 {
+		return -1
+	}
+	for index, window := range a.windows {
+		if window.PID != frontmostPID {
+			return index
+		}
+	}
+	return 0
+}
+
 func collapseToPrimaryWindows(windows []WindowInfo) []WindowInfo {
 	type scoredWindow struct {
 		window WindowInfo
@@ -390,6 +412,7 @@ func (a *App) permissionStatusLocked() PermissionStatus {
 }
 
 func (a *App) presentSnapshot(snapshot DesktopSnapshot) {
+	wruntime.WindowSetSize(a.ctx, switcherWidth, calculateSwitcherHeight(len(snapshot.Windows)))
 	wruntime.WindowCenter(a.ctx)
 	wruntime.WindowShow(a.ctx)
 	wruntime.Show(a.ctx)
@@ -408,4 +431,20 @@ func (a *App) hideSwitcher() {
 	wruntime.WindowHide(a.ctx)
 	wruntime.Hide(a.ctx)
 	a.emitSnapshot(snapshot)
+}
+
+func calculateSwitcherHeight(windowCount int) int {
+	rows := 1
+	if windowCount > 0 {
+		rows = (windowCount + switcherColumns - 1) / switcherColumns
+	}
+
+	height := switcherBaseHeight + (rows * switcherCardHeight)
+	if height < switcherMinHeight {
+		return switcherMinHeight
+	}
+	if height > switcherMaxHeight {
+		return switcherMaxHeight
+	}
+	return height
 }

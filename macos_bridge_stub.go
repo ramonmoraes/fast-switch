@@ -55,6 +55,10 @@ func activateWindow(pid int, title string) bool {
 	return false
 }
 
+func frontmostAppPID() int {
+	return 0
+}
+
 func registerOptionTabHotkey() bool {
 	return false
 }

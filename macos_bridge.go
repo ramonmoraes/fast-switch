@@ -15,6 +15,7 @@ bool fastswitch_screen_recording_granted(void);
 bool fastswitch_request_screen_recording(void);
 bool fastswitch_activate_app(int pid);
 bool fastswitch_activate_window(int pid, const char* title);
+int fastswitch_frontmost_app_pid(void);
 bool fastswitch_register_option_tab_hotkey(void);
 int fastswitch_consume_option_tab_press_count(void);
 int fastswitch_consume_option_key_release_count(void);
@@ -113,6 +114,10 @@ func activateWindow(pid int, title string) bool {
 	cTitle := C.CString(title)
 	defer C.free(unsafe.Pointer(cTitle))
 	return bool(C.fastswitch_activate_window(C.int(pid), cTitle))
+}
+
+func frontmostAppPID() int {
+	return int(C.fastswitch_frontmost_app_pid())
 }
 
 func registerOptionTabHotkey() bool {

@@ -1,6 +1,7 @@
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <dispatch/dispatch.h>
+#import <unistd.h>
 
 static volatile int fastswitchHotKeyPressCount = 0;
 static volatile int fastswitchCommandKeyReleaseCount = 0;
@@ -74,6 +75,7 @@ char *fastswitch_copy_windows_json(void) {
     return strdup("[]");
   }
 
+  pid_t currentPID = getpid();
   NSMutableArray *windows = [NSMutableArray array];
   NSArray *entries = CFBridgingRelease(windowList);
 
@@ -94,6 +96,9 @@ char *fastswitch_copy_windows_json(void) {
       continue;
     }
     if (![pidNumber isKindOfClass:[NSNumber class]] || ![bounds isKindOfClass:[NSDictionary class]]) {
+      continue;
+    }
+    if (pidNumber.intValue == currentPID) {
       continue;
     }
 
@@ -212,6 +217,14 @@ bool fastswitch_activate_window(int pid, const char *title) {
 
   CFRelease(applicationElement);
   return activated;
+}
+
+int fastswitch_frontmost_app_pid(void) {
+  NSRunningApplication *app = [[NSWorkspace sharedWorkspace] frontmostApplication];
+  if (app == nil) {
+    return 0;
+  }
+  return (int)app.processIdentifier;
 }
 
 bool fastswitch_register_option_tab_hotkey(void) {

@@ -22,11 +22,11 @@ func main() {
 		MinWidth:          860,
 		MinHeight:         560,
 		DisableResize:     false,
-		Frameless:         false,
+		Frameless:         true,
 		StartHidden:       true,
 		HideWindowOnClose: true,
 		AlwaysOnTop:       true,
-		BackgroundColour:  &options.RGBA{R: 246, G: 241, B: 233, A: 1},
+		BackgroundColour:  &options.RGBA{R: 246, G: 241, B: 233, A: 0},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
