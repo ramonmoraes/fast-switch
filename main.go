@@ -16,15 +16,17 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:            "Fast Switch",
-		Width:            1100,
-		Height:           720,
-		MinWidth:         900,
-		MinHeight:        640,
-		DisableResize:    false,
-		Frameless:        false,
-		StartHidden:      false,
-		BackgroundColour: &options.RGBA{R: 246, G: 241, B: 233, A: 1},
+		Title:             "Fast Switch",
+		Width:             980,
+		Height:            620,
+		MinWidth:          860,
+		MinHeight:         560,
+		DisableResize:     false,
+		Frameless:         false,
+		StartHidden:       true,
+		HideWindowOnClose: true,
+		AlwaysOnTop:       true,
+		BackgroundColour:  &options.RGBA{R: 246, G: 241, B: 233, A: 1},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

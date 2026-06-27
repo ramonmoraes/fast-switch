@@ -1,43 +1,295 @@
-const mockWindows = [
-  { app: "Cursor", title: "main.go", status: "Focused 2m ago" },
-  { app: "Safari", title: "Wails docs", status: "Pinned for setup" },
-  { app: "Terminal", title: "wails dev", status: "Background session" },
-  { app: "Figma", title: "Switcher layout", status: "Recent design" },
-];
+import { useEffect, useState } from "react";
+
+type AppState = {
+  name: string;
+  platform: string;
+  capabilities: string[];
+  nextSteps: string[];
+};
+
+type PermissionStatus = {
+  accessibility: boolean;
+  screenRecording: boolean;
+  hotkeyRegistered: boolean;
+  hotkeyPresses: number;
+  statusItemReady: boolean;
+  warnings: string[];
+};
+
+type WindowInfo = {
+  ownerName: string;
+  title: string;
+  pid: number;
+  layer: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type SwitcherState = {
+  visible: boolean;
+  selectedIndex: number;
+  selectedWindow?: WindowInfo;
+};
+
+type DesktopSnapshot = {
+  appState: AppState;
+  permissions: PermissionStatus;
+  windows: WindowInfo[];
+  switcher: SwitcherState;
+};
+
+declare global {
+  interface Window {
+    go?: {
+      main?: {
+        App?: {
+          GetDesktopSnapshot: () => Promise<DesktopSnapshot>;
+          RequestAccessibilityPermission: () => Promise<PermissionStatus>;
+          RequestScreenRecordingPermission: () => Promise<PermissionStatus>;
+          ActivateWindow: (pid: number, title: string) => Promise<boolean>;
+          ShowSwitcher: () => Promise<DesktopSnapshot>;
+          MoveSelection: (direction: number) => Promise<DesktopSnapshot>;
+          ConfirmSelection: () => Promise<boolean>;
+          CancelSwitcher: () => Promise<void>;
+          RefreshWindows: () => Promise<DesktopSnapshot>;
+        };
+      };
+    };
+  }
+}
+
+const fallbackSnapshot: DesktopSnapshot = {
+  appState: {
+    name: "Fast Switch",
+    platform: "darwin",
+    capabilities: [
+      "Desktop shell with Go backend",
+      "Transient switcher overlay window",
+      "Live macOS permissions, menu bar, and activation",
+    ],
+    nextSteps: [
+      "Dismiss the switcher automatically on key release",
+      "Add ranking, search, and recency ordering",
+      "Use native previews instead of metadata-only cards",
+    ],
+  },
+  permissions: {
+    accessibility: false,
+    screenRecording: false,
+    hotkeyRegistered: false,
+    hotkeyPresses: 0,
+    statusItemReady: false,
+    warnings: ["Run this UI inside Wails to access live macOS data."],
+  },
+  windows: [],
+  switcher: {
+    visible: true,
+    selectedIndex: -1,
+  },
+};
 
 function App() {
+  const [snapshot, setSnapshot] = useState<DesktopSnapshot>(fallbackSnapshot);
+  const [loading, setLoading] = useState(true);
+  const [activationMessage, setActivationMessage] = useState("");
+
+  async function refreshSnapshot() {
+    if (!window.go?.main?.App?.GetDesktopSnapshot) {
+      setLoading(false);
+      return;
+    }
+
+    const next = await window.go.main.App.GetDesktopSnapshot();
+    setSnapshot(next);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void refreshSnapshot();
+
+    const timer = window.setInterval(() => {
+      void refreshSnapshot();
+    }, 160);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    async function onKeyDown(event: KeyboardEvent) {
+      if (!window.go?.main?.App) {
+        return;
+      }
+
+      if (!snapshot.switcher.visible) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const next = await window.go.main.App.ShowSwitcher();
+          setSnapshot(next);
+        }
+        return;
+      }
+
+      if (event.key === "Tab" || event.key === "ArrowRight" || event.key === "ArrowDown") {
+        event.preventDefault();
+        const next = await window.go.main.App.MoveSelection(1);
+        setSnapshot(next);
+        return;
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const next = await window.go.main.App.MoveSelection(-1);
+        setSnapshot(next);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const activated = await window.go.main.App.ConfirmSelection();
+        setActivationMessage(activated ? "Activated selected window" : "Unable to activate selected window");
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        await window.go.main.App.CancelSwitcher();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [snapshot.switcher.visible]);
+
+  async function requestAccessibility() {
+    const next = await window.go?.main?.App?.RequestAccessibilityPermission?.();
+    if (next) {
+      setSnapshot((current) => ({ ...current, permissions: next }));
+    }
+  }
+
+  async function requestScreenRecording() {
+    const next = await window.go?.main?.App?.RequestScreenRecordingPermission?.();
+    if (next) {
+      setSnapshot((current) => ({ ...current, permissions: next }));
+    }
+  }
+
+  async function refreshWindows() {
+    const next = await window.go?.main?.App?.RefreshWindows?.();
+    if (next) {
+      setSnapshot(next);
+    }
+  }
+
+  async function activate(windowInfo: WindowInfo) {
+    const activated = await window.go?.main?.App?.ActivateWindow?.(windowInfo.pid, windowInfo.title);
+    setActivationMessage(
+      activated
+        ? `Activated ${windowInfo.ownerName}${windowInfo.title ? `: ${windowInfo.title}` : ""}`
+        : `Unable to activate ${windowInfo.ownerName}${windowInfo.title ? `: ${windowInfo.title}` : ""}`,
+    );
+    void refreshSnapshot();
+  }
+
+  const hotkeyText = snapshot.permissions.hotkeyRegistered
+    ? `Command + Tab live (${snapshot.permissions.hotkeyPresses} presses)`
+    : "Command + Tab not registered";
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell${snapshot.switcher.visible ? " switcher-mode" : ""}`}>
       <section className="hero">
         <p className="eyebrow">macOS Alt-Tab Utility</p>
         <h1>Fast Switch</h1>
         <p className="lede">
-          A Wails-based desktop shell for a customizable app and window switcher.
-          The frontend is ready for live data once the macOS integration layer is added.
+          A Wails-based switcher shell backed by live macOS permissions, menu bar presence,
+          and window activation APIs.
         </p>
       </section>
 
       <section className="panel">
         <div className="panel-header">
           <div>
-            <p className="section-label">Overlay Preview</p>
-            <h2>Switcher concept</h2>
+            <p className="section-label">Native Bridge</p>
+            <h2>Window switcher surface</h2>
           </div>
-          <span className="shortcut">Option + Tab</span>
+          <span className="shortcut">{hotkeyText}</span>
+        </div>
+
+        <div className="toolbar">
+          <button type="button" onClick={() => void refreshWindows()}>
+            Refresh windows
+          </button>
+          <button type="button" onClick={() => void requestAccessibility()}>
+            Request Accessibility
+          </button>
+          <button type="button" onClick={() => void requestScreenRecording()}>
+            Request Screen Recording
+          </button>
+        </div>
+
+        <div className="status-grid">
+          <article className="status-card">
+            <span>Accessibility</span>
+            <strong>{snapshot.permissions.accessibility ? "Granted" : "Missing"}</strong>
+          </article>
+          <article className="status-card">
+            <span>Screen Recording</span>
+            <strong>{snapshot.permissions.screenRecording ? "Granted" : "Missing"}</strong>
+          </article>
+          <article className="status-card">
+            <span>Menu Bar</span>
+            <strong>{snapshot.permissions.statusItemReady ? "Registered" : "Unavailable"}</strong>
+          </article>
+          <article className="status-card">
+            <span>Switcher</span>
+            <strong>{snapshot.switcher.visible ? "Visible" : "Hidden"}</strong>
+          </article>
+        </div>
+
+        {snapshot.permissions.warnings.length > 0 ? (
+          <div className="warning-list">
+            {snapshot.permissions.warnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        ) : null}
+
+        {activationMessage ? <p className="activation-message">{activationMessage}</p> : null}
+
+        <div className="hint-row">
+          <span>Use `Command+Tab` to open and cycle.</span>
+          <span>`Enter` activates. `Esc` dismisses.</span>
         </div>
 
         <div className="switcher">
-          {mockWindows.map((item) => (
-            <article className="switcher-card" key={`${item.app}-${item.title}`}>
-              <div className="switcher-icon">{item.app.slice(0, 1)}</div>
+          {snapshot.windows.map((item, index) => (
+            <article
+              className={`switcher-card${snapshot.switcher.selectedIndex === index ? " active" : ""}`}
+              key={`${item.pid}-${item.ownerName}-${item.title}`}
+            >
+              <div className="switcher-icon">{item.ownerName.slice(0, 1)}</div>
               <div className="switcher-copy">
-                <strong>{item.app}</strong>
-                <span>{item.title}</span>
-                <small>{item.status}</small>
+                <strong>{item.ownerName}</strong>
+                <span>{item.title || "Untitled window"}</span>
+                <small>
+                  PID {item.pid} • {Math.round(item.width)}x{Math.round(item.height)} at{" "}
+                  {Math.round(item.x)},{Math.round(item.y)}
+                </small>
               </div>
+              <button type="button" className="activate-button" onClick={() => void activate(item)}>
+                Activate
+              </button>
             </article>
           ))}
         </div>
+
+        {!loading && snapshot.windows.length === 0 ? (
+          <p className="empty-state">
+            No switchable windows were found. If this is unexpected, grant permissions and refresh.
+          </p>
+        ) : null}
       </section>
 
       <section className="grid">
@@ -45,17 +297,14 @@ function App() {
           <p className="section-label">Build track</p>
           <h3>Why Wails</h3>
           <p>
-            Go handles app logic and future native bridges, while the UI stays fast to
-            iterate with React.
+            Go owns the desktop logic, while the UI stays fast to iterate with React and
+            can consume native bridge data directly.
           </p>
         </article>
         <article className="info-card">
           <p className="section-label">Next milestone</p>
-          <h3>Native integration</h3>
-          <p>
-            Add macOS-specific hotkey capture and window access through a focused native
-            bridge instead of pushing everything into the web layer.
-          </p>
+          <h3>Real switcher behavior</h3>
+          <p>{snapshot.appState.nextSteps[0]}</p>
         </article>
       </section>
     </main>

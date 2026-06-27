@@ -28,6 +28,11 @@ body {
   padding: 56px 24px 72px;
 }
 
+.app-shell.switcher-mode .panel {
+  border-color: rgba(34, 40, 48, 0.18);
+  box-shadow: 0 24px 70px rgba(36, 41, 48, 0.18);
+}
+
 .hero {
   max-width: 720px;
   margin-bottom: 32px;
@@ -93,6 +98,86 @@ body {
   color: #f9f3ea;
 }
 
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.toolbar button,
+.activate-button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #2f2618;
+  color: #fffaf0;
+  font: inherit;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.toolbar button:hover,
+.activate-button:hover {
+  background: #47361f;
+  transform: translateY(-1px);
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.status-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(47, 38, 24, 0.08);
+}
+
+.status-card span,
+.warning-list p,
+.activation-message,
+.empty-state {
+  color: #4b5057;
+}
+
+.status-card span {
+  display: block;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.status-card strong {
+  font-size: 1.2rem;
+}
+
+.warning-list {
+  margin-bottom: 18px;
+}
+
+.warning-list p,
+.activation-message,
+.empty-state {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+  color: #4b5057;
+  font-size: 0.94rem;
+}
+
 .switcher {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -109,6 +194,12 @@ body {
   border: 1px solid rgba(50, 56, 61, 0.08);
 }
 
+.switcher-card.active {
+  border-color: rgba(28, 44, 76, 0.32);
+  box-shadow: 0 18px 36px rgba(44, 68, 104, 0.16);
+  transform: translateY(-1px);
+}
+
 .switcher-icon {
   width: 48px;
   height: 48px;
@@ -123,6 +214,7 @@ body {
 
 .switcher-copy {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
 }
@@ -135,6 +227,11 @@ body {
 .switcher-copy small,
 .info-card p {
   color: #4b5057;
+}
+
+.activate-button {
+  align-self: flex-start;
+  white-space: nowrap;
 }
 
 .grid {
@@ -170,5 +267,10 @@ body {
 
   .panel-header {
     flex-direction: column;
+  }
+
+  .switcher-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
