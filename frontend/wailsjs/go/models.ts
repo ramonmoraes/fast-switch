@@ -55,6 +55,7 @@ export namespace main {
 	export class WindowInfo {
 	    ownerName: string;
 	    title: string;
+	    icon: string;
 	    pid: number;
 	    layer: number;
 	    x: number;
@@ -70,6 +71,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ownerName = source["ownerName"];
 	        this.title = source["title"];
+	        this.icon = source["icon"];
 	        this.pid = source["pid"];
 	        this.layer = source["layer"];
 	        this.x = source["x"];

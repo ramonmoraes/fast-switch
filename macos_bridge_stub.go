@@ -5,6 +5,7 @@ package main
 type WindowInfo struct {
 	OwnerName string  `json:"ownerName"`
 	Title     string  `json:"title"`
+	Icon      string  `json:"icon"`
 	PID       int     `json:"pid"`
 	Layer     int     `json:"layer"`
 	X         float64 `json:"x"`

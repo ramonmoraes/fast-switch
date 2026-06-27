@@ -10,6 +10,7 @@ static CFMachPortRef fastswitchEventTap = nil;
 static CFRunLoopSourceRef fastswitchEventTapSource = nil;
 static NSStatusItem *fastswitchStatusItem = nil;
 static volatile int fastswitchStatusAction = 0;
+static NSMutableDictionary<NSString *, NSString *> *fastswitchIconCache = nil;
 
 @interface FastSwitchStatusTarget : NSObject
 @end
@@ -32,6 +33,42 @@ static FastSwitchStatusTarget *fastswitchStatusTarget = nil;
 
 static BOOL fastswitch_canUseString(id value) {
   return value != nil && value != [NSNull null] && [value isKindOfClass:[NSString class]];
+}
+
+static NSString *fastswitch_icon_base64_for_pid(NSNumber *pidNumber, NSMutableDictionary *iconCache) {
+  if (iconCache == nil) {
+    return @"";
+  }
+  NSString *cacheKey = pidNumber.stringValue;
+  NSString *cached = iconCache[cacheKey];
+  if (cached != nil) {
+    return cached;
+  }
+
+  NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)pidNumber.intValue];
+  if (app == nil || app.icon == nil) {
+    iconCache[cacheKey] = @"";
+    return @"";
+  }
+
+  NSImage *icon = app.icon.copy;
+  icon.size = NSMakeSize(128, 128);
+  NSData *tiffData = [icon TIFFRepresentation];
+  if (tiffData == nil) {
+    iconCache[cacheKey] = @"";
+    return @"";
+  }
+
+  NSBitmapImageRep *rep = [NSBitmapImageRep imageRepWithData:tiffData];
+  NSData *pngData = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+  if (pngData == nil) {
+    iconCache[cacheKey] = @"";
+    return @"";
+  }
+
+  NSString *base64 = [pngData base64EncodedStringWithOptions:0];
+  iconCache[cacheKey] = base64;
+  return base64;
 }
 
 static CGEventRef fastswitch_event_tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *userInfo) {
@@ -76,6 +113,9 @@ char *fastswitch_copy_windows_json(void) {
   }
 
   pid_t currentPID = getpid();
+  if (fastswitchIconCache == nil) {
+    fastswitchIconCache = [NSMutableDictionary dictionary];
+  }
   NSMutableArray *windows = [NSMutableArray array];
   NSArray *entries = CFBridgingRelease(windowList);
 
@@ -117,6 +157,7 @@ char *fastswitch_copy_windows_json(void) {
     [windows addObject:@{
       @"ownerName": ownerName,
       @"title": title,
+      @"icon": fastswitch_icon_base64_for_pid(pidNumber, fastswitchIconCache),
       @"pid": pidNumber,
       @"layer": layerNumber,
       @"x": @([bounds[@"X"] doubleValue]),

@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-
-type AppState = {
-  name: string;
-  platform: string;
-  capabilities: string[];
-  nextSteps: string[];
-};
+import { EventsOn } from "../wailsjs/runtime/runtime";
 
 type PermissionStatus = {
   accessibility: boolean;
@@ -19,6 +13,7 @@ type PermissionStatus = {
 type WindowInfo = {
   ownerName: string;
   title: string;
+  icon: string;
   pid: number;
   layer: number;
   x: number;
@@ -34,7 +29,6 @@ type SwitcherState = {
 };
 
 type DesktopSnapshot = {
-  appState: AppState;
   permissions: PermissionStatus;
   windows: WindowInfo[];
   switcher: SwitcherState;
@@ -47,13 +41,11 @@ declare global {
         App?: {
           GetDesktopSnapshot: () => Promise<DesktopSnapshot>;
           RequestAccessibilityPermission: () => Promise<PermissionStatus>;
-          RequestScreenRecordingPermission: () => Promise<PermissionStatus>;
           ActivateWindow: (pid: number, title: string) => Promise<boolean>;
           ShowSwitcher: () => Promise<DesktopSnapshot>;
           MoveSelection: (direction: number) => Promise<DesktopSnapshot>;
           ConfirmSelection: () => Promise<boolean>;
           CancelSwitcher: () => Promise<void>;
-          RefreshWindows: () => Promise<DesktopSnapshot>;
         };
       };
     };
@@ -61,20 +53,6 @@ declare global {
 }
 
 const fallbackSnapshot: DesktopSnapshot = {
-  appState: {
-    name: "Fast Switch",
-    platform: "darwin",
-    capabilities: [
-      "Desktop shell with Go backend",
-      "Transient switcher overlay window",
-      "Live macOS permissions, menu bar, and activation",
-    ],
-    nextSteps: [
-      "Dismiss the switcher automatically on key release",
-      "Add ranking, search, and recency ordering",
-      "Use native previews instead of metadata-only cards",
-    ],
-  },
   permissions: {
     accessibility: false,
     screenRecording: false,
@@ -90,188 +68,110 @@ const fallbackSnapshot: DesktopSnapshot = {
   },
 };
 
+function iconSource(windowInfo: WindowInfo) {
+  return windowInfo.icon ? `data:image/png;base64,${windowInfo.icon}` : "";
+}
+
+function iconFallback(windowInfo: WindowInfo) {
+  return (windowInfo.ownerName || windowInfo.title || "?").slice(0, 1).toUpperCase();
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<DesktopSnapshot>(fallbackSnapshot);
-  const [loading, setLoading] = useState(true);
-  const [activationMessage, setActivationMessage] = useState("");
 
   async function refreshSnapshot() {
     if (!window.go?.main?.App?.GetDesktopSnapshot) {
-      setLoading(false);
       return;
     }
-
     const next = await window.go.main.App.GetDesktopSnapshot();
     setSnapshot(next);
-    setLoading(false);
   }
 
   useEffect(() => {
     void refreshSnapshot();
 
-    const timer = window.setInterval(() => {
-      void refreshSnapshot();
-    }, 160);
+    const unsubscribe = EventsOn("switcher:snapshot", (next: DesktopSnapshot) => {
+      setSnapshot(next);
+    });
 
-    return () => window.clearInterval(timer);
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     async function onKeyDown(event: KeyboardEvent) {
-      if (!window.go?.main?.App) {
+      const app = window.go?.main?.App;
+      if (!app) {
         return;
       }
 
-      if (!snapshot.switcher.visible) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          const next = await window.go.main.App.ShowSwitcher();
-          setSnapshot(next);
-        }
-        return;
-      }
-
-      if (event.key === "Tab" || event.key === "ArrowRight" || event.key === "ArrowDown") {
+      if (event.key === "Tab" || event.key === "ArrowRight") {
         event.preventDefault();
-        const next = await window.go.main.App.MoveSelection(1);
-        setSnapshot(next);
+        setSnapshot(await app.MoveSelection(1));
         return;
       }
 
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
-        const next = await window.go.main.App.MoveSelection(-1);
-        setSnapshot(next);
+        setSnapshot(await app.MoveSelection(-1));
         return;
       }
 
       if (event.key === "Enter") {
         event.preventDefault();
-        const activated = await window.go.main.App.ConfirmSelection();
-        setActivationMessage(activated ? "Activated selected window" : "Unable to activate selected window");
+        await app.ConfirmSelection();
         return;
       }
 
       if (event.key === "Escape") {
         event.preventDefault();
-        await window.go.main.App.CancelSwitcher();
+        await app.CancelSwitcher();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [snapshot.switcher.visible]);
+  }, []);
 
-  async function requestAccessibility() {
-    const next = await window.go?.main?.App?.RequestAccessibilityPermission?.();
-    if (next) {
-      setSnapshot((current) => ({ ...current, permissions: next }));
-    }
-  }
-
-  async function requestScreenRecording() {
-    const next = await window.go?.main?.App?.RequestScreenRecordingPermission?.();
-    if (next) {
-      setSnapshot((current) => ({ ...current, permissions: next }));
-    }
-  }
-
-  async function refreshWindows() {
-    const next = await window.go?.main?.App?.RefreshWindows?.();
-    if (next) {
-      setSnapshot(next);
-    }
-  }
-
-  async function activate(windowInfo: WindowInfo) {
-    const activated = await window.go?.main?.App?.ActivateWindow?.(windowInfo.pid, windowInfo.title);
-    setActivationMessage(
-      activated
-        ? `Activated ${windowInfo.ownerName}${windowInfo.title ? `: ${windowInfo.title}` : ""}`
-        : `Unable to activate ${windowInfo.ownerName}${windowInfo.title ? `: ${windowInfo.title}` : ""}`,
-    );
-    void refreshSnapshot();
-  }
-
-  const hotkeyText = snapshot.permissions.hotkeyRegistered
-    ? `Command + Tab live (${snapshot.permissions.hotkeyPresses} presses)`
-    : "Command + Tab not registered";
-
-  const debug = false
+  const selectedWindow =
+    snapshot.switcher.selectedWindow ??
+    (snapshot.switcher.selectedIndex >= 0 ? snapshot.windows[snapshot.switcher.selectedIndex] : undefined);
 
   return (
-    <main className={`app-shell${snapshot.switcher.visible ? " switcher-mode" : ""}`}>
-      <section className="panel">
-        {debug && (
-          <div className="toolbar">
-            <button type="button" onClick={() => void refreshWindows()}>
-              Refresh windows
-            </button>
-            <button type="button" onClick={() => void requestAccessibility()}>
-              Request Accessibility
-            </button>
-            <button type="button" onClick={() => void requestScreenRecording()}>
-              Request Screen Recording
-            </button>
-          </div>
-        )}
+    <main className="switcher-shell">
+      {!snapshot.permissions.hotkeyRegistered && snapshot.permissions.accessibility ? (
+        <div className="permission-note">Command-Tab interception unavailable</div>
+      ) : null}
 
-        {debug && (
-          <div className="status-grid">
-            <article className="status-card">
-              <span>Accessibility</span>
-              <strong>{snapshot.permissions.accessibility ? "Granted" : "Missing"}</strong>
-            </article>
-            <article className="status-card">
-              <span>Screen Recording</span>
-              <strong>{snapshot.permissions.screenRecording ? "Granted" : "Missing"}</strong>
-            </article>
-            <article className="status-card">
-              <span>Menu Bar</span>
-              <strong>{snapshot.permissions.statusItemReady ? "Registered" : "Unavailable"}</strong>
-            </article>
-            <article className="status-card">
-              <span>Switcher</span>
-              <strong>{snapshot.switcher.visible ? "Visible" : "Hidden"}</strong>
-            </article>
-          </div>
-        )}
+      {!snapshot.permissions.accessibility ? (
+        <button
+          type="button"
+          className="permission-note permission-button"
+          onClick={() => void window.go?.main?.App?.RequestAccessibilityPermission?.()}
+        >
+          Enable Accessibility To Use Fast Switch
+        </button>
+      ) : null}
 
-        {debug && snapshot.permissions.warnings.length > 0 ? (
-          <div className="warning-list">
-            {snapshot.permissions.warnings.map((warning) => (
-              <p key={warning}>{warning}</p>
-            ))}
-          </div>
-        ) : null}
-
-        {activationMessage ? <p className="activation-message">{activationMessage}</p> : null}
-
-        <div className="switcher">
+      <section className="switcher-frame" aria-label="App Switcher">
+        <div className="switcher-strip">
           {snapshot.windows.map((item, index) => (
-            <article
-              className={`switcher-card${snapshot.switcher.selectedIndex === index ? " active" : ""}`}
-              key={`${item.pid}-${item.ownerName}-${item.title}`}
+            <button
+              type="button"
+              className={`app-tile${snapshot.switcher.selectedIndex === index ? " active" : ""}`}
+              key={`${item.pid}-${item.ownerName}`}
+              onClick={() => void window.go?.main?.App?.ActivateWindow?.(item.pid, item.title)}
             >
-              <div className="switcher-icon">{item.ownerName.slice(0, 1)}</div>
-              <div className="switcher-copy">
-                <strong>{item.ownerName || item.title || "Untitled window"}</strong>
+              <div className="app-icon-wrap">
+                {item.icon ? (
+                  <img className="app-icon" src={iconSource(item)} alt="" draggable={false} />
+                ) : (
+                  <div className="app-icon app-icon-fallback">{iconFallback(item)}</div>
+                )}
               </div>
-
-              {debug && (
-                <button type="button" className="activate-button" onClick={() => void activate(item)}>
-                  Activate
-                </button>
-              )}
-            </article>
+              <span className="app-label">{item.ownerName || item.title || "App"}</span>
+            </button>
           ))}
         </div>
-
-        {!loading && snapshot.windows.length === 0 ? (
-          <p className="empty-state">
-            No switchable windows were found. If this is unexpected, grant permissions and refresh.
-          </p>
-        ) : null}
       </section>
     </main>
   );
