@@ -201,12 +201,7 @@ char *fastswitch_copy_windows_json(void) {
       @"ownerName": ownerName,
       @"title": title,
       @"icon": fastswitch_icon_base64_for_pid(pidNumber, fastswitchIconCache),
-      @"pid": pidNumber,
-      @"layer": layerNumber,
-      @"x": @([bounds[@"X"] doubleValue]),
-      @"y": @([bounds[@"Y"] doubleValue]),
-      @"width": @(width),
-      @"height": @(height)
+      @"pid": pidNumber
     }];
   }
 

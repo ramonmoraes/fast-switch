@@ -7,11 +7,6 @@ type WindowInfo struct {
 	Title     string  `json:"title"`
 	Icon      string  `json:"icon"`
 	PID       int     `json:"pid"`
-	Layer     int     `json:"layer"`
-	X         float64 `json:"x"`
-	Y         float64 `json:"y"`
-	Width     float64 `json:"width"`
-	Height    float64 `json:"height"`
 }
 
 type PermissionStatus struct {

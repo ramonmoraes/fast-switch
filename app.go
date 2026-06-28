@@ -348,16 +348,16 @@ func (a *App) firstSelectableIndexLocked(frontmostPID int) int {
 func collapseToPrimaryWindows(windows []WindowInfo) []WindowInfo {
 	type scoredWindow struct {
 		window WindowInfo
-		score  float64
+		score  int
 	}
 
 	bestByApp := make(map[int]scoredWindow)
 	order := make([]int, 0, len(windows))
 
 	for _, window := range windows {
-		score := window.Width * window.Height
+		score := 0
 		if window.Title != "" {
-			score += 1000000
+			score += 1
 		}
 
 		current, exists := bestByApp[window.PID]
@@ -381,12 +381,10 @@ func collapseToPrimaryWindows(windows []WindowInfo) []WindowInfo {
 	}
 
 	sort.SliceStable(result, func(i, j int) bool {
-		leftArea := result[i].Width * result[i].Height
-		rightArea := result[j].Width * result[j].Height
-		if leftArea == rightArea {
-			return result[i].OwnerName < result[j].OwnerName
+		if result[i].OwnerName == result[j].OwnerName {
+			return result[i].Title < result[j].Title
 		}
-		return leftArea > rightArea
+		return result[i].OwnerName < result[j].OwnerName
 	})
 
 	return result

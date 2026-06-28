@@ -57,11 +57,6 @@ export namespace main {
 	    title: string;
 	    icon: string;
 	    pid: number;
-	    layer: number;
-	    x: number;
-	    y: number;
-	    width: number;
-	    height: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new WindowInfo(source);
@@ -73,11 +68,6 @@ export namespace main {
 	        this.title = source["title"];
 	        this.icon = source["icon"];
 	        this.pid = source["pid"];
-	        this.layer = source["layer"];
-	        this.x = source["x"];
-	        this.y = source["y"];
-	        this.width = source["width"];
-	        this.height = source["height"];
 	    }
 	}
 	export class PermissionStatus {
