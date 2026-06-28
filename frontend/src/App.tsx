@@ -193,10 +193,6 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const selectedWindow =
-    snapshot.switcher.selectedWindow ??
-    (snapshot.switcher.selectedIndex >= 0 ? snapshot.windows[snapshot.switcher.selectedIndex] : undefined);
-
   return (
     <main className="switcher-shell">
       {!snapshot.permissions.hotkeyRegistered && snapshot.permissions.accessibility ? (
@@ -235,6 +231,7 @@ function App() {
                   <div className="app-icon app-icon-fallback">{iconFallback(item)}</div>
                 )}
               </div>
+
               <span className="app-label">{item.ownerName || item.title || "App"}</span>
             </button>
           ))}
