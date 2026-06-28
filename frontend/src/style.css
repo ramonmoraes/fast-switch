@@ -28,8 +28,8 @@ img {
 }
 
 .switcher-frame {
+  width: var(--frame-width, auto);
   min-width: 340px;
-  max-width: calc(100vw - 32px);
   padding: 20px 22px 16px;
   border-radius: 18px;
 
@@ -45,7 +45,7 @@ img {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 10px;
+  gap: var(--strip-gap, 10px);
   overflow: hidden;
 }
 
@@ -53,15 +53,15 @@ img {
   appearance: none;
   border: 0;
   margin: 0;
-  padding: 10px 8px 6px;
-  width: 82px;
+  padding: var(--tile-padding-top, 10px) var(--tile-padding-x, 8px) var(--tile-padding-bottom, 6px);
+  width: var(--tile-width, 82px);
   background: transparent;
   color: inherit;
-  border-radius: 12px;
+  border-radius: var(--tile-radius, 12px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--tile-gap, 8px);
 }
 
 .app-tile.active {
@@ -72,16 +72,16 @@ img {
 }
 
 .app-icon-wrap {
-  width: 60px;
-  height: 60px;
+  width: var(--icon-wrap-size, 60px);
+  height: var(--icon-wrap-size, 60px);
   display: grid;
   place-items: center;
 }
 
 .app-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: var(--icon-size, 56px);
+  height: var(--icon-size, 56px);
+  border-radius: var(--icon-radius, 14px);
   object-fit: cover;
   box-shadow:
     0 10px 16px rgba(0, 0, 0, 0.28),

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { EventsOn, WindowSetSize } from "../wailsjs/runtime/runtime";
 
 type PermissionStatus = {
@@ -68,6 +68,17 @@ const fallbackSnapshot: DesktopSnapshot = {
   },
 };
 
+const baseIconSize = 100;
+const baseIconWrapPadding = 4;
+const baseTilePaddingX = 8;
+const baseTilePaddingTop = 10;
+const baseTilePaddingBottom = 6;
+const baseTileGap = 8;
+const baseStripGap = 10;
+const baseFrameHorizontalPadding = 44;
+const minFrameWidth = 340;
+const frameEdgeMargin = 32;
+
 function iconSource(windowInfo: WindowInfo) {
   return windowInfo.icon ? `data:image/png;base64,${windowInfo.icon}` : "";
 }
@@ -79,6 +90,38 @@ function iconFallback(windowInfo: WindowInfo) {
 function App() {
   const [snapshot, setSnapshot] = useState<DesktopSnapshot>(fallbackSnapshot);
   const switcherRef = useRef<HTMLElement | null>(null);
+  const itemCount = snapshot.windows.length;
+  const baseIconWrapSize = baseIconSize + baseIconWrapPadding * 2;
+  const baseTileWidth = Math.max(82, baseIconWrapSize + baseTilePaddingX * 2);
+
+  const maxFrameWidth = Math.max(
+    minFrameWidth,
+    (typeof window !== "undefined" ? window.screen.availWidth : minFrameWidth + frameEdgeMargin) - frameEdgeMargin,
+  );
+  const baseStripWidth =
+    itemCount > 0 ? itemCount * baseTileWidth + (itemCount - 1) * baseStripGap : minFrameWidth - baseFrameHorizontalPadding;
+  const scale =
+    itemCount > 3 ? Math.min(1, (maxFrameWidth - baseFrameHorizontalPadding) / baseStripWidth) : 1;
+  const frameWidth = Math.max(
+    minFrameWidth,
+    Math.min(
+      maxFrameWidth,
+      Math.ceil((itemCount > 0 ? baseStripWidth : minFrameWidth - baseFrameHorizontalPadding) * scale + baseFrameHorizontalPadding),
+    ),
+  );
+  const switcherStyle = {
+    "--frame-width": `${frameWidth}px`,
+    "--tile-width": `${Math.round(baseTileWidth * scale)}px`,
+    "--tile-padding-x": `${Math.round(baseTilePaddingX * scale)}px`,
+    "--tile-padding-top": `${Math.round(baseTilePaddingTop * scale)}px`,
+    "--tile-padding-bottom": `${Math.round(baseTilePaddingBottom * scale)}px`,
+    "--tile-gap": `${Math.max(6, Math.round(baseTileGap * scale))}px`,
+    "--strip-gap": `${Math.max(6, Math.round(baseStripGap * scale))}px`,
+    "--icon-wrap-size": `${Math.round(baseIconWrapSize * scale)}px`,
+    "--icon-size": `${Math.round(baseIconSize * scale)}px`,
+    "--icon-radius": `${Math.round(14 * scale)}px`,
+    "--tile-radius": `${Math.round(12 * scale)}px`,
+  } as CSSProperties;
 
   async function refreshSnapshot() {
     if (!window.go?.main?.App?.GetDesktopSnapshot) {
@@ -175,7 +218,13 @@ function App() {
         </button>
       ) : null}
 
-      <section className="switcher-frame" aria-label="App Switcher" id="switcher" ref={switcherRef}>
+      <section
+        className="switcher-frame"
+        aria-label="App Switcher"
+        id="switcher"
+        ref={switcherRef}
+        style={switcherStyle}
+      >
         <div className="switcher-strip">
           {snapshot.windows.map((item, index) => (
             <button
