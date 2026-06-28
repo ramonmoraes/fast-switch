@@ -2,6 +2,9 @@
 
 Truly go back to the previous application.
 
+
+<a href="https://www.buymeacoffee.com/ramonmoraes" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 ## macOS permissions
 
 To get useful results, expect to grant:
