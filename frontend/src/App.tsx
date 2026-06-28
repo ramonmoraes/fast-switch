@@ -15,11 +15,6 @@ type WindowInfo = {
   title: string;
   icon: string;
   pid: number;
-  layer: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 };
 
 type SwitcherState = {
