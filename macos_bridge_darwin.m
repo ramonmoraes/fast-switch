@@ -72,6 +72,141 @@ static NSString *fastswitch_icon_base64_for_pid(NSNumber *pidNumber, NSMutableDi
   return base64;
 }
 
+static NSString *fastswitch_window_title_for_ax_window(AXUIElementRef window) {
+  if (window == nil) {
+    return @"";
+  }
+
+  CFTypeRef titleValue = nil;
+  if (AXUIElementCopyAttributeValue(window, kAXTitleAttribute, &titleValue) != kAXErrorSuccess || titleValue == nil) {
+    return @"";
+  }
+
+  if (CFGetTypeID(titleValue) != CFStringGetTypeID()) {
+    CFRelease(titleValue);
+    return @"";
+  }
+
+  return CFBridgingRelease(titleValue);
+}
+
+static BOOL fastswitch_ax_window_is_standard(AXUIElementRef window) {
+  if (window == nil) {
+    return NO;
+  }
+
+  CFTypeRef roleValue = nil;
+  if (AXUIElementCopyAttributeValue(window, kAXRoleAttribute, &roleValue) != kAXErrorSuccess || roleValue == nil) {
+    return NO;
+  }
+
+  BOOL isWindowRole = CFGetTypeID(roleValue) == CFStringGetTypeID() &&
+                      CFStringCompare(roleValue, kAXWindowRole, 0) == kCFCompareEqualTo;
+  CFRelease(roleValue);
+  return isWindowRole;
+}
+
+static void fastswitch_unminimize_ax_window(AXUIElementRef window) {
+  if (window == nil) {
+    return;
+  }
+
+  CFTypeRef minimizedValue = nil;
+  if (AXUIElementCopyAttributeValue(window, kAXMinimizedAttribute, &minimizedValue) != kAXErrorSuccess || minimizedValue == nil) {
+    return;
+  }
+
+  BOOL isMinimized = CFGetTypeID(minimizedValue) == CFBooleanGetTypeID() && CFBooleanGetValue(minimizedValue);
+  CFRelease(minimizedValue);
+  if (!isMinimized) {
+    return;
+  }
+
+  AXUIElementSetAttributeValue(window, kAXMinimizedAttribute, kCFBooleanFalse);
+}
+
+static BOOL fastswitch_ax_window_is_minimized(AXUIElementRef window) {
+  if (window == nil) {
+    return NO;
+  }
+
+  CFTypeRef minimizedValue = nil;
+  if (AXUIElementCopyAttributeValue(window, kAXMinimizedAttribute, &minimizedValue) != kAXErrorSuccess || minimizedValue == nil) {
+    return NO;
+  }
+
+  BOOL isMinimized = CFGetTypeID(minimizedValue) == CFBooleanGetTypeID() && CFBooleanGetValue(minimizedValue);
+  CFRelease(minimizedValue);
+  return isMinimized;
+}
+
+static NSArray *fastswitch_copy_ax_windows_for_pid(pid_t pid) {
+  AXUIElementRef applicationElement = AXUIElementCreateApplication(pid);
+  if (applicationElement == nil) {
+    return @[];
+  }
+
+  CFArrayRef windowsRef = nil;
+  AXError windowsError = AXUIElementCopyAttributeValue(applicationElement, kAXWindowsAttribute, (CFTypeRef *)&windowsRef);
+  CFRelease(applicationElement);
+  if (windowsError != kAXErrorSuccess || windowsRef == nil) {
+    return @[];
+  }
+
+  return CFBridgingRelease(windowsRef);
+}
+
+static NSString *fastswitch_visible_ax_window_title_for_app(NSRunningApplication *app) {
+  if (app == nil || app.hidden) {
+    return nil;
+  }
+
+  NSArray *axWindows = fastswitch_copy_ax_windows_for_pid(app.processIdentifier);
+  for (id entry in axWindows) {
+    AXUIElementRef window = (__bridge AXUIElementRef)entry;
+    if (!fastswitch_ax_window_is_standard(window) || fastswitch_ax_window_is_minimized(window)) {
+      continue;
+    }
+
+    NSString *title = fastswitch_window_title_for_ax_window(window);
+    if (title.length > 0) {
+      return title;
+    }
+  }
+
+  return nil;
+}
+
+static BOOL fastswitch_activate_running_app(NSRunningApplication *app) {
+  if (app == nil) {
+    return NO;
+  }
+
+  [app unhide];
+  return [app activateWithOptions:NSApplicationActivateAllWindows];
+}
+
+static void fastswitch_append_window(NSMutableArray *windows,
+                                     NSMutableSet<NSNumber *> *seenPIDs,
+                                     NSString *ownerName,
+                                     NSString *title,
+                                     NSNumber *pidNumber,
+                                     NSMutableDictionary *iconCache) {
+  if (windows == nil || seenPIDs == nil || ownerName.length == 0 || pidNumber == nil) {
+    return;
+  }
+  if ([seenPIDs containsObject:pidNumber]) {
+    return;
+  }
+
+  [windows addObject:@{
+    @"ownerName": ownerName,
+    @"title": title != nil ? title : @"",
+    @"icon": fastswitch_icon_base64_for_pid(pidNumber, iconCache),
+    @"pid": pidNumber
+  }];
+  [seenPIDs addObject:pidNumber];
+}
 
 static void fastswitch_apply_corner_mask(NSView *view, CGFloat cornerRadius) {
   if (view == nil) {
@@ -160,6 +295,7 @@ char *fastswitch_copy_windows_json(void) {
     fastswitchIconCache = [NSMutableDictionary dictionary];
   }
   NSMutableArray *windows = [NSMutableArray array];
+  NSMutableSet<NSNumber *> *seenPIDs = [NSMutableSet set];
   NSArray *entries = CFBridgingRelease(windowList);
 
   for (NSDictionary *entry in entries) {
@@ -197,12 +333,29 @@ char *fastswitch_copy_windows_json(void) {
       title = rawTitle;
     }
 
-    [windows addObject:@{
-      @"ownerName": ownerName,
-      @"title": title,
-      @"icon": fastswitch_icon_base64_for_pid(pidNumber, fastswitchIconCache),
-      @"pid": pidNumber
-    }];
+    fastswitch_append_window(windows, seenPIDs, ownerName, title, pidNumber, fastswitchIconCache);
+  }
+
+  for (NSRunningApplication *app in NSWorkspace.sharedWorkspace.runningApplications) {
+    if (app == nil || app.processIdentifier == currentPID) {
+      continue;
+    }
+    if (app.activationPolicy != NSApplicationActivationPolicyRegular) {
+      continue;
+    }
+
+    NSNumber *pidNumber = @(app.processIdentifier);
+    if ([seenPIDs containsObject:pidNumber]) {
+      continue;
+    }
+
+    NSString *title = fastswitch_visible_ax_window_title_for_app(app);
+    if (title.length == 0) {
+      continue;
+    }
+
+    NSString *ownerName = app.localizedName ?: @"";
+    fastswitch_append_window(windows, seenPIDs, ownerName, title, pidNumber, fastswitchIconCache);
   }
 
   NSData *jsonData = [NSJSONSerialization dataWithJSONObject:windows options:0 error:nil];
@@ -239,11 +392,7 @@ bool fastswitch_request_screen_recording(void) {
 
 bool fastswitch_activate_app(int pid) {
   NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:(pid_t)pid];
-  if (app == nil) {
-    return false;
-  }
-
-  return [app activateWithOptions:0];
+  return fastswitch_activate_running_app(app);
 }
 
 bool fastswitch_activate_window(int pid, const char *title) {
@@ -252,49 +401,30 @@ bool fastswitch_activate_window(int pid, const char *title) {
     return false;
   }
 
-  [app activateWithOptions:0];
-
-  AXUIElementRef applicationElement = AXUIElementCreateApplication((pid_t)pid);
-  if (applicationElement == nil) {
-    return false;
-  }
-
-  CFArrayRef windowsRef = nil;
-  AXError windowsError = AXUIElementCopyAttributeValue(applicationElement, kAXWindowsAttribute, (CFTypeRef *)&windowsRef);
-  if (windowsError != kAXErrorSuccess || windowsRef == nil) {
-    CFRelease(applicationElement);
+  NSArray *windows = fastswitch_copy_ax_windows_for_pid((pid_t)pid);
+  if (windows.count == 0) {
     return false;
   }
 
   NSString *desiredTitle = title != NULL ? [NSString stringWithUTF8String:title] : @"";
-  NSArray *windows = CFBridgingRelease(windowsRef);
   BOOL activated = NO;
 
   for (id entry in windows) {
     AXUIElementRef window = (__bridge AXUIElementRef)entry;
-    CFTypeRef titleValue = nil;
-    NSString *windowTitle = @"";
-
-    if (AXUIElementCopyAttributeValue(window, kAXTitleAttribute, &titleValue) == kAXErrorSuccess && titleValue != nil) {
-      if (CFGetTypeID(titleValue) == CFStringGetTypeID()) {
-        windowTitle = CFBridgingRelease(titleValue);
-      } else {
-        CFRelease(titleValue);
-      }
-    }
+    NSString *windowTitle = fastswitch_window_title_for_ax_window(window);
 
     if (desiredTitle.length > 0 && ![windowTitle isEqualToString:desiredTitle]) {
       continue;
     }
 
+    fastswitch_unminimize_ax_window(window);
     AXUIElementPerformAction(window, kAXRaiseAction);
     AXUIElementSetAttributeValue(window, kAXMainAttribute, kCFBooleanTrue);
     AXUIElementSetAttributeValue(window, kAXFocusedAttribute, kCFBooleanTrue);
-    activated = YES;
+    activated = fastswitch_activate_running_app(app);
     break;
   }
 
-  CFRelease(applicationElement);
   return activated;
 }
 
